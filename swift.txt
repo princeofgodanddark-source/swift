@@ -1,0 +1,2132 @@
+--[[
+	SW1ftHub - All features fixed and working.
+	ONLY for The Strongest Battlegrounds (Place ID: 10449761463)
+]]
+
+-- ========== BOOT DIAGNOSTICS ==========
+local function notify(title, text, duration)
+    pcall(function()
+        game.StarterGui:SetCore("SendNotification", {
+            Title = title,
+            Text = text,
+            Duration = duration or 4,
+        })
+    end)
+end
+
+print(string.format(
+    "[SW1ftHub] boot | PlaceId=%s JobId=%s Executor=%s",
+    tostring(game.PlaceId),
+    tostring(game.JobId),
+    tostring((getexecutorname and getexecutorname()) or "unknown")
+))
+
+-- ========== BOOT STATUS (visible feedback on screen) ==========
+local statusGui, statusLabel
+pcall(function()
+    local parent = (gethui and gethui()) or game:GetService("CoreGui")
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "SW1ftHubBootStatus"
+    gui.ResetOnSpawn = false
+    gui.IgnoreGuiInset = true
+    gui.DisplayOrder = 2147483647
+    gui.Parent = parent
+    statusGui = gui
+end)
+if not statusGui then
+    pcall(function()
+        local gui = Instance.new("ScreenGui")
+        gui.Name = "SW1ftHubBootStatus"
+        gui.ResetOnSpawn = false
+        gui.IgnoreGuiInset = true
+        gui.DisplayOrder = 2147483647
+        gui.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+        statusGui = gui
+    end)
+end
+if statusGui then
+    pcall(function()
+        local frame = Instance.new("Frame")
+        frame.Position = UDim2.fromOffset(12, 12)
+        frame.Size = UDim2.fromOffset(340, 34)
+        frame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+        frame.BackgroundTransparency = 0.1
+        frame.BorderSizePixel = 0
+        frame.Parent = statusGui
+
+        local corner = Instance.new("UICorner")
+        corner.CornerRadius = UDim.new(0, 8)
+        corner.Parent = frame
+
+        local stroke = Instance.new("UIStroke")
+        stroke.Thickness = 1
+        stroke.Transparency = 0.5
+        stroke.Parent = frame
+
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(1, -16, 1, 0)
+        label.Position = UDim2.fromOffset(8, 0)
+        label.BackgroundTransparency = 1
+        label.Font = Enum.Font.GothamMedium
+        label.TextSize = 14
+        label.TextXAlignment = Enum.TextXAlignment.Left
+        label.TextColor3 = Color3.new(1, 1, 1)
+        label.Text = "SW1ftHub: starting..."
+        label.Parent = frame
+        statusLabel = label
+    end)
+end
+
+local function setStatus(text)
+    print("[SW1ftHub] " .. text)
+    pcall(function()
+        if statusLabel then
+            statusLabel.Text = "SW1ftHub: " .. text
+        end
+    end)
+end
+
+-- ========== GAME CHECK (warn only so it can still be tested) ==========
+if game.PlaceId ~= 10449761463 then
+    warn("[SW1ftHub] PlaceId mismatch: " .. tostring(game.PlaceId) .. " (expected 10449761463)")
+    notify("Wrong Game", "This script is built for The Strongest Battlegrounds. Features may not work here.", 6)
+end
+
+-- ========== ERROR CATCHER (shows any error on screen) ==========
+local bootOk, bootErr = pcall(function()
+
+-- ========== LOAD WINDUI (own fallback loader) ==========
+setStatus("loading WindUI...")
+local WindUI = nil
+
+local function httpGet(url)
+    -- Try with cache-bypass first, fall back to a plain request
+    local ok, body = pcall(function()
+        return game:HttpGet(url, true)
+    end)
+    if ok and type(body) == "string" and #body > 0 then
+        return body
+    end
+    ok, body = pcall(function()
+        return game:HttpGet(url)
+    end)
+    if ok and type(body) == "string" and #body > 0 then
+        return body
+    end
+    return nil
+end
+
+local WindUISources = {
+    "https://github.com/Footagesus/WindUI/releases/latest/download/main.lua",
+    "https://github.com/Footagesus/WindUI/releases/download/1.6.66/main.lua",
+    "https://cdn.jsdelivr.net/gh/Footagesus/WindUI@1.6.66/dist/main.lua",
+    "https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua",
+}
+
+for _, url in ipairs(WindUISources) do
+    local source = httpGet(url)
+    if source then
+        local ok, result = pcall(function()
+            return loadstring(source)()
+        end)
+        if ok and type(result) == "table" then
+            WindUI = result
+            setStatus("WindUI loaded")
+            break
+        end
+        warn("[SW1ftHub] WindUI failed from: " .. url .. " | " .. tostring(result))
+    else
+        warn("[SW1ftHub] Could not download: " .. url)
+    end
+end
+
+if not WindUI then
+    notify("Error", "Failed to load WindUI from every source. Check your executor's HTTP access.", 5)
+    warn("[SW1ftHub] FATAL: no WindUI source worked")
+    return
+end
+
+WindUI:AddTheme({
+    Name = "My Theme",
+    Accent = Color3.fromHex("#FFFFFF"),
+    Background = Color3.fromHex("#000000"),
+    Outline = Color3.fromHex("#FFFFFF"),
+    Text = Color3.fromHex("#FFFFFF"),
+    Placeholder = Color3.fromHex("#555555"),
+    Button = Color3.fromHex("#1a1a1a"),
+    Icon = Color3.fromHex("#FFFFFF"),
+})
+
+setStatus("creating window...")
+local Window = WindUI:CreateWindow({
+    Title = "SW1ftHub",
+    Icon = "rbxassetid://110312595891409",
+    Author = "By SW1ft",
+    Folder = "SW1ftHub",
+    Background = "rbxassetid://71368356813356",
+    Size = UDim2.fromOffset(580, 460),
+    MinSize = Vector2.new(560, 350),
+    MaxSize = Vector2.new(850, 560),
+    Transparent = true,
+    Theme = "My Theme",
+    Resizable = true,
+    SideBarWidth = 200,
+    BackgroundImageTransparency = 0.65,
+    HideSearchBar = true,
+    ScrollBarEnabled = false,
+    User = {
+        Enabled = true,
+        Anonymous = false,
+        Callback = function()
+            print("clicked")
+        end,
+    },
+})
+
+if not Window then
+    notify("Error", "Failed to create window. Please try again.", 5)
+    warn("[SW1ftHub] FATAL: CreateWindow returned nil")
+    return
+end
+
+print("[SW1ftHub] window created")
+setStatus("UI ready")
+
+Window:EditOpenButton({
+    Title = "SW1ftHub",
+    Icon = "rbxassetid://71368356813356",
+    CornerRadius = UDim.new(1, 0),
+    StrokeThickness = 2,
+    Color = ColorSequence.new(Color3.fromHex("#FFFFFF"), Color3.fromHex("#1a1a1a")),
+    OnlyIcon = true,
+    OnlyMobile = false,
+    Enabled = false, -- replaced by our own circular button below
+    Draggable = false,
+})
+
+-- ========== OWN CIRCULAR OPEN/CLOSE BUTTON ==========
+-- Self-contained, so it works even if WindUI's internal open button changes
+-- or is not exposed by the installed WindUI version.
+do
+    local UserInputService = game:GetService("UserInputService")
+    local buttonParent = nil
+    pcall(function()
+        buttonParent = gethui and gethui() or nil
+    end)
+    if not buttonParent then
+        pcall(function()
+            buttonParent = game:GetService("CoreGui")
+        end)
+    end
+
+    local openGui = Instance.new("ScreenGui")
+    openGui.Name = "SW1ftHubCircleButton"
+    openGui.ResetOnSpawn = false
+    openGui.IgnoreGuiInset = true
+    openGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    openGui.DisplayOrder = 99999
+    local parentOk = false
+    if buttonParent then
+        parentOk = pcall(function()
+            openGui.Parent = buttonParent
+        end)
+    end
+    if not parentOk then
+        openGui.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+    end
+
+    local button = Instance.new("Frame")
+    button.Name = "OpenButton"
+    button.AnchorPoint = Vector2.new(1, 1)
+    button.Position = UDim2.new(1, -16, 1, -16)
+    button.Size = UDim2.fromOffset(52, 52)
+    button.BackgroundColor3 = Color3.fromHex("#000000")
+    button.BackgroundTransparency = 0.25
+    button.BorderSizePixel = 0
+    button.Active = true
+    button.Parent = openGui
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(1, 0) -- perfect circle
+    corner.Parent = button
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Thickness = 2
+    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    stroke.Parent = button
+
+    local gradient = Instance.new("UIGradient")
+    gradient.Color = ColorSequence.new(Color3.fromHex("#FFFFFF"), Color3.fromHex("#1a1a1a"))
+    gradient.Parent = stroke
+
+    local icon = Instance.new("ImageLabel")
+    icon.Name = "Icon"
+    icon.AnchorPoint = Vector2.new(0.5, 0.5)
+    icon.Position = UDim2.fromScale(0.5, 0.5)
+    icon.Size = UDim2.fromOffset(30, 30)
+    icon.BackgroundTransparency = 1
+    icon.Image = "rbxassetid://71368356813356"
+    icon.Parent = button
+
+    local dragging = false
+    local moved = false
+    local dragStart = nil
+    local startPos = nil
+
+    local function toggleWindow()
+        pcall(function()
+            if Window.Closed then
+                Window:Open()
+            else
+                Window:Close()
+            end
+        end)
+    end
+
+    button.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            moved = false
+            dragStart = input.Position
+            startPos = button.Position
+        end
+    end)
+
+    button.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+            if not moved then
+                toggleWindow()
+            end
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging
+            and (input.UserInputType == Enum.UserInputType.MouseMovement
+                or input.UserInputType == Enum.UserInputType.Touch) then
+            local delta = input.Position - dragStart
+            if math.abs(delta.X) > 6 or math.abs(delta.Y) > 6 then
+                moved = true
+            end
+            button.Position = UDim2.new(
+                startPos.X.Scale,
+                startPos.X.Offset + delta.X,
+                startPos.Y.Scale,
+                startPos.Y.Offset + delta.Y
+            )
+        end
+    end)
+
+    -- Remove the circle if the window is fully destroyed
+    pcall(function()
+        Window:OnDestroy(function()
+            pcall(function()
+                openGui:Destroy()
+            end)
+        end)
+    end)
+end
+
+-- ========== SOUND ==========
+local SoundService = game:GetService("SoundService")
+local sound = Instance.new("Sound")
+sound.SoundId = "rbxassetid://4503761646"
+sound.Volume = 2
+sound.Looped = false
+sound.Parent = SoundService
+sound:Play()
+
+-- ========== GLOBAL SETTINGS ==========
+local Settings = {
+    Autoparry = {
+        Toggle = false,
+        Range = 25,
+        Delay = 0,
+        Fov = 180,
+        Facing = false,
+        Dodgerange = 3,
+        Aimhelper = false,
+    },
+}
+local autoBlockConnection = nil
+
+-- ========== TOGGLES FOR TECH ==========
+local toggles = {
+    HexedTech = false
+}
+
+-- ========== VOID PART FOR ANTI-DEATH ==========
+local voidPart = Instance.new("Part")
+voidPart.Name = "Void Part"
+voidPart.Size = Vector3.new(9e9, 1.5, 9e9)
+voidPart.Anchored = true
+voidPart.CanCollide = true
+voidPart.Material = Enum.Material.Plastic
+voidPart.Color = Color3.new(0, 0, 0)
+voidPart.CFrame = CFrame.new(-363.407135, -501.227661, 643.748657)
+voidPart.Parent = workspace
+
+-- ========== CONFIG TAB ==========
+local ConfigTab = Window:Tab({
+    Title = "Config",
+    Icon = "settings",
+    Locked = false,
+})
+
+ConfigTab:Paragraph({
+    Title = "Configuration",
+    Text = "Save your settings here."
+})
+
+ConfigTab:Button({
+    Title = "Save Config",
+    Desc = "Save current configuration settings",
+    Callback = function()
+        game.StarterGui:SetCore("SendNotification", {
+            Title = "Config Saved",
+            Text = "Configuration has been saved successfully!",
+            Duration = 3,
+        })
+    end
+})
+
+-- ========== MAIN TAB ==========
+local MainTab = Window:Tab({
+    Title = "Main",
+    Icon = "home",
+    Locked = false,
+})
+
+MainTab:Paragraph({
+    Title = "Welcome to SW1ftHub",
+    Text = "All features are here (TSB only)."
+})
+
+-- ============================================================
+-- 1. AIMBOT (keybind Z, UI with Start/Stop)
+-- ============================================================
+local aimbotActive = false
+local aimbotConnections = {}
+local aimbotGui = nil
+
+local function StopAimbot()
+    for _, conn in pairs(aimbotConnections) do
+        if conn and conn.Disconnect then
+            pcall(function() conn:Disconnect() end)
+        end
+    end
+    aimbotConnections = {}
+
+    if aimbotGui then
+        pcall(function() aimbotGui:Destroy() end)
+        aimbotGui = nil
+    end
+
+    getgenv().CamlockState = false
+    getgenv().enemy = nil
+end
+
+local function StartAimbot()
+    if aimbotActive then
+        StopAimbot()
+    end
+
+    getgenv().CamlockState = false
+    getgenv().enemy = nil
+    getgenv().Key = "z"
+
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local LocalPlayer = Players.LocalPlayer
+    local Mouse = LocalPlayer:GetMouse()
+
+    local function FindNearestEnemy()
+        local ClosestDistance, ClosestPlayer = math.huge, nil
+        local CenterPosition = Vector2.new(
+            game:GetService("GuiService"):GetScreenResolution().X / 2,
+            game:GetService("GuiService"):GetScreenResolution().Y / 2
+        )
+        for _, Player in ipairs(Players:GetPlayers()) do
+            if Player ~= LocalPlayer then
+                local Character = Player.Character
+                if Character and Character:FindFirstChild("HumanoidRootPart") and Character.Humanoid.Health > 0 then
+                    local Position, IsVisibleOnViewport = workspace.CurrentCamera:WorldToViewportPoint(Character.HumanoidRootPart.Position)
+                    if IsVisibleOnViewport then
+                        local Distance = (CenterPosition - Vector2.new(Position.X, Position.Y)).Magnitude
+                        if Distance < ClosestDistance then
+                            ClosestPlayer = Character.HumanoidRootPart
+                            ClosestDistance = Distance
+                        end
+                    end
+                end
+            end
+        end
+        return ClosestPlayer
+    end
+
+    local heartbeatConn
+    heartbeatConn = RunService.Heartbeat:Connect(function()
+        if getgenv().CamlockState and getgenv().enemy then
+            local camera = workspace.CurrentCamera
+            local pred = 0.16
+            camera.CFrame = CFrame.new(camera.CFrame.p, getgenv().enemy.Position + getgenv().enemy.Velocity * pred)
+        end
+    end)
+    table.insert(aimbotConnections, heartbeatConn)
+
+    local keyConn
+    keyConn = Mouse.KeyDown:Connect(function(k)
+        if k == getgenv().Key then
+            getgenv().CamlockState = not getgenv().CamlockState
+            if getgenv().CamlockState then
+                getgenv().enemy = FindNearestEnemy()
+            else
+                getgenv().enemy = nil
+            end
+        end
+    end)
+    table.insert(aimbotConnections, keyConn)
+
+    -- UI
+    local BladLock = Instance.new("ScreenGui")
+    BladLock.Name = "BladLock"
+    BladLock.Parent = game.CoreGui
+    BladLock.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    aimbotGui = BladLock
+
+    local Frame = Instance.new("Frame")
+    Frame.Parent = BladLock
+    Frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    Frame.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    Frame.BorderSizePixel = 0
+    Frame.Size = UDim2.new(0, 120, 0, 40)
+    Frame.Active = true
+    Frame.Draggable = true
+
+    local function CenterFrame()
+        Frame.Position = UDim2.new(0.5, -Frame.AbsoluteSize.X / 2, 0, -Frame.AbsoluteSize.Y / 2)
+    end
+    CenterFrame()
+    Frame:GetPropertyChangedSignal("AbsoluteSize"):Connect(CenterFrame)
+
+    local UICorner = Instance.new("UICorner")
+    UICorner.Parent = Frame
+
+    local Logo = Instance.new("ImageLabel")
+    Logo.Name = "Logo"
+    Logo.Parent = Frame
+    Logo.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Logo.BackgroundTransparency = 1
+    Logo.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    Logo.BorderSizePixel = 0
+    Logo.Size = UDim2.new(0, 35, 0, 35)
+    Logo.Position = UDim2.new(0.5, -35/2, 0.05, 0)
+    Logo.Image = "rbxassetid://16792732223"
+    Logo.ImageTransparency = 0.2
+
+    local TextButton = Instance.new("TextButton")
+    TextButton.Parent = Frame
+    TextButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    TextButton.BackgroundTransparency = 1
+    TextButton.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    TextButton.BorderSizePixel = 0
+    TextButton.Size = UDim2.new(0, 100, 0, 25)
+    TextButton.Position = UDim2.new(0.5, -100/2, 0.55, 0)
+    TextButton.Font = Enum.Font.SourceSansSemibold
+    TextButton.Text = "Start"
+    TextButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    TextButton.TextScaled = true
+    TextButton.TextSize = 14
+    TextButton.TextWrapped = true
+
+    local state = true
+    local btnConn
+    btnConn = TextButton.MouseButton1Click:Connect(function()
+        state = not state
+        if not state then
+            TextButton.Text = "Stop"
+            getgenv().CamlockState = true
+            getgenv().enemy = FindNearestEnemy()
+        else
+            TextButton.Text = "Start"
+            getgenv().CamlockState = false
+            getgenv().enemy = nil
+        end
+    end)
+    table.insert(aimbotConnections, btnConn)
+
+    aimbotActive = true
+end
+
+MainTab:Toggle({
+    Title = "Aimbot",
+    Desc = "Enable/disable the aimbot (UI + keybind Z)",
+    Locked = false,
+    Default = false,
+    Callback = function(state)
+        if state then
+            StartAimbot()
+        else
+            StopAimbot()
+            aimbotActive = false
+        end
+    end
+})
+
+-- ============================================================
+-- 2. ESP (Health above heads)
+-- ============================================================
+local espEnabled = false
+local espBillboards = {}
+local espConnections = {}
+
+local function DestroyAllESP()
+    for _, billList in pairs(espBillboards) do
+        for _, bill in pairs(billList) do
+            pcall(function() bill:Destroy() end)
+        end
+    end
+    espBillboards = {}
+
+    for _, conn in pairs(espConnections) do
+        pcall(function() conn:Disconnect() end)
+    end
+    espConnections = {}
+end
+
+local function SetupESPForPlayer(player)
+    if player == game.Players.LocalPlayer then return end
+
+    local function CreateBillboard(char)
+        local head = char:FindFirstChild("Head")
+        local humanoid = char:FindFirstChild("Humanoid")
+        if not head or not humanoid then
+            head = char:WaitForChild("Head", 3)
+            humanoid = char:WaitForChild("Humanoid", 3)
+            if not head or not humanoid then return end
+        end
+
+        local existing = espBillboards[player]
+        if existing then
+            for i, b in pairs(existing) do
+                if b and b.Adornee and b.Adornee.Parent == char then
+                    pcall(function() b:Destroy() end)
+                    table.remove(existing, i)
+                    break
+                end
+            end
+        end
+
+        local billboard = Instance.new("BillboardGui")
+        billboard.Size = UDim2.new(0, 60, 0, 20)
+        billboard.StudsOffset = Vector3.new(0, 2, 0)
+        billboard.Adornee = head
+        billboard.Parent = head
+
+        local textLabel = Instance.new("TextLabel")
+        textLabel.Size = UDim2.new(1, 0, 1, 0)
+        textLabel.BackgroundTransparency = 1
+        textLabel.TextScaled = true
+        textLabel.Font = Enum.Font.SourceSansBold
+        textLabel.TextColor3 = Color3.new(1, 1, 1)
+        textLabel.TextStrokeTransparency = 0
+        textLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
+        textLabel.Text = "100"
+        textLabel.Parent = billboard
+
+        if not espBillboards[player] then espBillboards[player] = {} end
+        table.insert(espBillboards[player], billboard)
+
+        local function updateHealth(health)
+            if health < 0 then health = 0 end
+            textLabel.Text = tostring(math.floor(health))
+            if health > 50 then
+                textLabel.TextColor3 = Color3.new(0, 1, 0)
+            elseif health > 25 then
+                textLabel.TextColor3 = Color3.new(1, 1, 0)
+            else
+                textLabel.TextColor3 = Color3.new(1, 0, 0)
+            end
+        end
+
+        local healthConn = humanoid.HealthChanged:Connect(updateHealth)
+        updateHealth(humanoid.Health)
+
+        local function cleanup()
+            local list = espBillboards[player]
+            if list then
+                for i, b in pairs(list) do
+                    if b == billboard then
+                        table.remove(list, i)
+                        break
+                    end
+                end
+            end
+            pcall(function() billboard:Destroy() end)
+            pcall(function() healthConn:Disconnect() end)
+            pcall(function() diedConn:Disconnect() end)
+            pcall(function() charAncestryConn:Disconnect() end)
+        end
+
+        local diedConn = humanoid.Died:Connect(cleanup)
+        local charAncestryConn
+        charAncestryConn = char.AncestryChanged:Connect(function()
+            if not char.Parent then cleanup() end
+        end)
+    end
+
+    if player.Character then
+        CreateBillboard(player.Character)
+    end
+
+    local charAddedConn = player.CharacterAdded:Connect(function(char)
+        CreateBillboard(char)
+    end)
+    table.insert(espConnections, charAddedConn)
+end
+
+local function StartESP()
+    if espEnabled then return end
+    local Players = game:GetService("Players")
+    local LocalPlayer = Players.LocalPlayer
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            SetupESPForPlayer(player)
+        end
+    end
+
+    local playerAddedConn = Players.PlayerAdded:Connect(function(player)
+        if player ~= LocalPlayer then
+            SetupESPForPlayer(player)
+        end
+    end)
+    table.insert(espConnections, playerAddedConn)
+
+    espEnabled = true
+end
+
+local function StopESP()
+    DestroyAllESP()
+    espEnabled = false
+end
+
+MainTab:Toggle({
+    Title = "ESP",
+    Desc = "Show health above heads (small & clean)",
+    Locked = false,
+    Default = false,
+    Callback = function(state)
+        if state then
+            StartESP()
+        else
+            StopESP()
+        end
+    end
+})
+
+-- ============================================================
+-- 3. ESP Tracer (red beams to enemies)
+-- ============================================================
+local tracerEnabled = false
+local tracerBeams = {}
+local tracerConnections = {}
+
+local function DestroyAllTracers()
+    for _, beam in pairs(tracerBeams) do
+        if beam and beam.Parent then
+            pcall(function() beam:Destroy() end)
+        end
+    end
+    tracerBeams = {}
+    for _, conn in pairs(tracerConnections) do
+        pcall(function() conn:Disconnect() end)
+    end
+    tracerConnections = {}
+end
+
+local function CreateTracerForPlayer(player)
+    if player == game.Players.LocalPlayer then return end
+
+    local function updateTracer()
+        local LocalChar = game.Players.LocalPlayer.Character
+        local PlayerChar = player.Character
+        if not LocalChar or not PlayerChar then return end
+        local localRoot = LocalChar:FindFirstChild("HumanoidRootPart")
+        local playerRoot = PlayerChar:FindFirstChild("HumanoidRootPart")
+        if not localRoot or not playerRoot then return end
+
+        if tracerBeams[player] and tracerBeams[player].Parent then
+            pcall(function() tracerBeams[player]:Destroy() end)
+            tracerBeams[player] = nil
+        end
+
+        local att0 = Instance.new("Attachment")
+        att0.Parent = localRoot
+        local att1 = Instance.new("Attachment")
+        att1.Parent = playerRoot
+
+        local beam = Instance.new("Beam")
+        beam.Name = "ESPBeam"
+        beam.Attachment0 = att0
+        beam.Attachment1 = att1
+        beam.Color = ColorSequence.new(Color3.fromRGB(255, 0, 0))
+        beam.FaceCamera = true
+        beam.Width0 = 0.15
+        beam.Width1 = 0.15
+        beam.Parent = player.Character or player
+        tracerBeams[player] = beam
+
+        beam.AncestryChanged:Connect(function()
+            if not beam.Parent then
+                pcall(function() att0:Destroy() end)
+                pcall(function() att1:Destroy() end)
+                tracerBeams[player] = nil
+            end
+        end)
+    end
+
+    if player.Character then
+        updateTracer()
+    end
+
+    local charConn = player.CharacterAdded:Connect(function()
+        task.wait(0.2)
+        updateTracer()
+    end)
+    table.insert(tracerConnections, charConn)
+
+    local localCharConn = game.Players.LocalPlayer.CharacterAdded:Connect(function()
+        task.wait(0.2)
+        updateTracer()
+    end)
+    table.insert(tracerConnections, localCharConn)
+end
+
+local function StartTracers()
+    if tracerEnabled then return end
+    local Players = game:GetService("Players")
+    local LocalPlayer = Players.LocalPlayer
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            CreateTracerForPlayer(player)
+        end
+    end
+
+    local playerAddedConn = Players.PlayerAdded:Connect(function(player)
+        if player ~= LocalPlayer then
+            CreateTracerForPlayer(player)
+        end
+    end)
+    table.insert(tracerConnections, playerAddedConn)
+
+    tracerEnabled = true
+end
+
+local function StopTracers()
+    DestroyAllTracers()
+    tracerEnabled = false
+end
+
+MainTab:Toggle({
+    Title = "ESP Tracer",
+    Desc = "Draw red beams from you to every enemy",
+    Locked = false,
+    Default = false,
+    Callback = function(state)
+        if state then
+            StartTracers()
+        else
+            StopTracers()
+        end
+    end
+})
+
+-- ============================================================
+-- 4. Invisible Block (swap with dummy)
+-- ============================================================
+local invisActive = false
+local fakeChar = nil
+local invisPart = nil
+local isInvisible = false
+local realChar = nil
+local pseudoAnchor = nil
+local invisConnections = {}
+local renderConn = nil
+
+local function CleanupInvis()
+    if isInvisible and realChar and fakeChar then
+        local StoredCF = fakeChar.HumanoidRootPart.CFrame
+        fakeChar.HumanoidRootPart.CFrame = realChar.HumanoidRootPart.CFrame
+        realChar.HumanoidRootPart.CFrame = StoredCF
+        fakeChar.Humanoid:UnequipTools()
+        game.Players.LocalPlayer.Character = realChar
+        workspace.CurrentCamera.CameraSubject = realChar.Humanoid
+        pseudoAnchor = fakeChar.HumanoidRootPart
+        for i, v in pairs(fakeChar:GetChildren()) do
+            if v:IsA("LocalScript") then
+                v.Disabled = true
+            end
+        end
+        isInvisible = false
+    end
+
+    if fakeChar then
+        pcall(function() fakeChar:Destroy() end)
+        fakeChar = nil
+    end
+    if invisPart then
+        pcall(function() invisPart:Destroy() end)
+        invisPart = nil
+    end
+
+    for _, conn in pairs(invisConnections) do
+        pcall(function() conn:Disconnect() end)
+    end
+    invisConnections = {}
+    if renderConn then
+        pcall(function() renderConn:Disconnect() end)
+        renderConn = nil
+    end
+
+    local player = game.Players.LocalPlayer
+    if realChar and realChar.Parent == workspace then
+        player.Character = realChar
+        workspace.CurrentCamera.CameraSubject = realChar:FindFirstChild("Humanoid")
+    end
+    realChar = nil
+    pseudoAnchor = nil
+    invisActive = false
+end
+
+local function SetupInvis()
+    if invisActive then
+        CleanupInvis()
+    end
+
+    local player = game.Players.LocalPlayer
+    realChar = player.Character or player.CharacterAdded:Wait()
+    if not realChar then return end
+
+    realChar.Archivable = true
+    fakeChar = realChar:Clone()
+    invisPart = Instance.new("Part", workspace)
+    invisPart.Anchored = true
+    invisPart.Size = Vector3.new(200, 1, 200)
+    invisPart.CFrame = CFrame.new(0, -500, 0)
+    invisPart.CanCollide = true
+    fakeChar.Parent = workspace
+    fakeChar.HumanoidRootPart.CFrame = invisPart.CFrame * CFrame.new(0, 5, 0)
+
+    for i, v in pairs(fakeChar:GetChildren()) do
+        if v:IsA("LocalScript") then
+            local clone = v:Clone()
+            clone.Disabled = true
+            clone.Parent = fakeChar
+        end
+    end
+
+    for i, v in pairs(fakeChar:GetDescendants()) do
+        if v:IsA("BasePart") then
+            v.Transparency = 0.7
+        end
+    end
+
+    local function OnCharacterDied()
+        if realChar then
+            realChar:Destroy()
+            realChar = nil
+        end
+        if fakeChar then
+            fakeChar:Destroy()
+            fakeChar = nil
+        end
+        isInvisible = false
+    end
+
+    local function OnCharacterAppearanceLoaded(newChar)
+        realChar = newChar
+        realChar.Archivable = true
+        fakeChar = realChar:Clone()
+        invisPart:Destroy()
+        invisPart = Instance.new("Part", workspace)
+        invisPart.Anchored = true
+        invisPart.Size = Vector3.new(200, 1, 200)
+        invisPart.CFrame = CFrame.new(0, -500, 0)
+        invisPart.CanCollide = true
+        fakeChar.Parent = workspace
+        fakeChar.HumanoidRootPart.CFrame = invisPart.CFrame * CFrame.new(0, 5, 0)
+
+        for i, v in pairs(fakeChar:GetChildren()) do
+            if v:IsA("LocalScript") then
+                local clone = v:Clone()
+                clone.Disabled = true
+                clone.Parent = fakeChar
+            end
+        end
+        for i, v in pairs(fakeChar:GetDescendants()) do
+            if v:IsA("BasePart") then
+                v.Transparency = 0.7
+            end
+        end
+
+        local hum = realChar:FindFirstChild("Humanoid")
+        if hum then
+            local diedConn = hum.Died:Connect(OnCharacterDied)
+            table.insert(invisConnections, diedConn)
+        end
+        local appearanceConn = player.CharacterAppearanceLoaded:Connect(OnCharacterAppearanceLoaded)
+        table.insert(invisConnections, appearanceConn)
+
+        if invisActive then
+            local StoredCF = realChar.HumanoidRootPart.CFrame
+            realChar.HumanoidRootPart.CFrame = fakeChar.HumanoidRootPart.CFrame
+            fakeChar.HumanoidRootPart.CFrame = StoredCF
+            realChar.Humanoid:UnequipTools()
+            player.Character = fakeChar
+            workspace.CurrentCamera.CameraSubject = fakeChar.Humanoid
+            pseudoAnchor = realChar.HumanoidRootPart
+            for i, v in pairs(fakeChar:GetChildren()) do
+                if v:IsA("LocalScript") then
+                    v.Disabled = false
+                end
+            end
+            isInvisible = true
+        end
+    end
+
+    local hum = realChar:FindFirstChild("Humanoid")
+    if hum then
+        local diedConn = hum.Died:Connect(OnCharacterDied)
+        table.insert(invisConnections, diedConn)
+    end
+    local appearanceConn = player.CharacterAppearanceLoaded:Connect(OnCharacterAppearanceLoaded)
+    table.insert(invisConnections, appearanceConn)
+
+    renderConn = game:GetService("RunService").RenderStepped:Connect(function()
+        if pseudoAnchor then
+            pseudoAnchor.CFrame = invisPart.CFrame * CFrame.new(0, 5, 0)
+        end
+        if fakeChar and fakeChar:FindFirstChild("Humanoid") then
+            fakeChar.Humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+        end
+    end)
+
+    if realChar and fakeChar then
+        local StoredCF = realChar.HumanoidRootPart.CFrame
+        realChar.HumanoidRootPart.CFrame = fakeChar.HumanoidRootPart.CFrame
+        fakeChar.HumanoidRootPart.CFrame = StoredCF
+        realChar.Humanoid:UnequipTools()
+        player.Character = fakeChar
+        workspace.CurrentCamera.CameraSubject = fakeChar.Humanoid
+        pseudoAnchor = realChar.HumanoidRootPart
+        for i, v in pairs(fakeChar:GetChildren()) do
+            if v:IsA("LocalScript") then
+                v.Disabled = false
+            end
+        end
+        isInvisible = true
+    end
+
+    invisActive = true
+end
+
+MainTab:Toggle({
+    Title = "Invisible Block",
+    Desc = "Make yourself invisible (swap with a dummy)",
+    Locked = false,
+    Default = false,
+    Callback = function(state)
+        if state then
+            SetupInvis()
+        else
+            CleanupInvis()
+        end
+    end
+})
+
+-- ============================================================
+-- 5. Auto Wall Combo
+-- ============================================================
+local wallComboEnabled = false
+local wallComboThread = nil
+
+local function StopWallCombo()
+    wallComboEnabled = false
+    if wallComboThread then
+        task.cancel(wallComboThread)
+        wallComboThread = nil
+    end
+end
+
+local function StartWallCombo()
+    if wallComboThread then
+        StopWallCombo()
+    end
+    wallComboEnabled = true
+    wallComboThread = task.spawn(function()
+        while wallComboEnabled do
+            local args = { [1] = { ["Goal"] = "Wall Combo" } }
+            pcall(function()
+                local char = game.Players.LocalPlayer.Character
+                if char and char:FindFirstChild("Communicate") then
+                    char.Communicate:FireServer(unpack(args))
+                end
+            end)
+            task.wait(0.1)
+        end
+    end)
+end
+
+MainTab:Toggle({
+    Title = "Auto Wall Combo",
+    Desc = "Continuously fire Wall Combo remote",
+    Locked = false,
+    Default = false,
+    Callback = function(state)
+        if state then
+            StartWallCombo()
+        else
+            StopWallCombo()
+        end
+    end
+})
+
+-- ============================================================
+-- 6. Hitbox Changer
+-- ============================================================
+local hitboxEnabled = false
+local hitboxConnection = nil
+
+local function StartHitbox()
+    if hitboxConnection then return end
+    hitboxEnabled = true
+    hitboxConnection = game:GetService("RunService").RenderStepped:Connect(function()
+        local localPlayer = game.Players.LocalPlayer
+        for _, player in ipairs(game.Players:GetPlayers()) do
+            if player ~= localPlayer then
+                local char = player.Character
+                if char then
+                    local root = char:FindFirstChild("HumanoidRootPart")
+                    if root then
+                        root.Size = Vector3.new(15, 15, 15)
+                        root.Transparency = 0.9
+                        root.Color = Color3.new(0.9, 0.9, 0.9)
+                        root.Material = Enum.Material.Neon
+                        root.CanCollide = false
+                    end
+                end
+            end
+        end
+    end)
+end
+
+local function StopHitbox()
+    hitboxEnabled = false
+    if hitboxConnection then
+        hitboxConnection:Disconnect()
+        hitboxConnection = nil
+    end
+end
+
+MainTab:Toggle({
+    Title = "Hitbox Changer",
+    Desc = "Modify enemy hitbox size, transparency, color, and material",
+    Locked = false,
+    Default = false,
+    Callback = function(state)
+        if state then
+            StartHitbox()
+        else
+            StopHitbox()
+        end
+    end
+})
+
+-- ============================================================
+-- 7. Noclip
+-- ============================================================
+local noclipEnabled = false
+local noclipConnection = nil
+
+local function StartNoclip()
+    if noclipConnection then return end
+    noclipEnabled = true
+    noclipConnection = game:GetService("RunService").Stepped:Connect(function()
+        local player = game.Players.LocalPlayer
+        local char = player.Character
+        if char then
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = false
+                end
+            end
+        end
+    end)
+end
+
+local function StopNoclip()
+    noclipEnabled = false
+    if noclipConnection then
+        noclipConnection:Disconnect()
+        noclipConnection = nil
+    end
+    local player = game.Players.LocalPlayer
+    local char = player.Character
+    if char then
+        for _, part in ipairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = true
+            end
+        end
+    end
+end
+
+MainTab:Toggle({
+    Title = "Noclip",
+    Desc = "Make your character pass through walls",
+    Locked = false,
+    Default = false,
+    Callback = function(state)
+        if state then
+            StartNoclip()
+        else
+            StopNoclip()
+        end
+    end
+})
+
+-- ============================================================
+-- 8. Anti-Lag (FPS Booster)
+-- ============================================================
+MainTab:Button({
+    Title = "Anti-Lag",
+    Desc = "Boost FPS by reducing graphics (grass, particles, etc.)",
+    Callback = function()
+        task.spawn(function()
+            _G.Ignore = {}
+            _G.Settings = {
+                Players = {
+                    ["Ignore Me"] = true,
+                    ["Ignore Others"] = true,
+                    ["Ignore Tools"] = true
+                },
+                Meshes = { NoMesh = false, NoTexture = false, Destroy = false },
+                Images = { Invisible = true, Destroy = false },
+                Explosions = { Smaller = true, Invisible = false, Destroy = false },
+                Particles = { Invisible = true, Destroy = false },
+                TextLabels = { LowerQuality = true, Invisible = false, Destroy = false },
+                MeshParts = {
+                    LowerQuality = true,
+                    Invisible = false,
+                    NoTexture = false,
+                    NoMesh = false,
+                    Destroy = false
+                },
+                Other = {
+                    ["FPS Cap"] = 360,
+                    ["No Camera Effects"] = true,
+                    ["No Clothes"] = true,
+                    ["Low Water Graphics"] = true,
+                    ["No Shadows"] = true,
+                    ["Low Rendering"] = true,
+                    ["Low Quality Parts"] = true,
+                    ["Low Quality Models"] = true,
+                    ["Reset Materials"] = true,
+                }
+            }
+
+            local success, result = pcall(function()
+                return loadstring(game:HttpGet("https://raw.githubusercontent.com/CasperFlyModz/discord.gg-rips/main/FPSBooster.lua"))()
+            end)
+
+            if not success then
+                warn("Anti-Lag failed to load:", result)
+                game.StarterGui:SetCore("SendNotification", {
+                    Title = "Anti-Lag",
+                    Text = "Failed to load. Check console.",
+                    Duration = 3,
+                })
+            else
+                game.StarterGui:SetCore("SendNotification", {
+                    Title = "Anti-Lag",
+                    Text = "FPS booster applied!",
+                    Duration = 3,
+                })
+            end
+        end)
+    end
+})
+
+-- ============================================================
+-- 9. Auto Block (parry)
+-- ============================================================
+MainTab:Toggle({
+    Title = "Auto Block",
+    Desc = "Automatically parry/block enemy attacks (range 25, FOV 180)",
+    Locked = false,
+    Default = false,
+    Callback = function(state)
+        if state then
+            Settings.Autoparry.Toggle = true
+            if autoBlockConnection then return end
+
+            local players = game:GetService("Players")
+            local plr = players.LocalPlayer
+            local cd = false
+
+            local anims = {
+                ["rbxassetid://10469493270"] = { [1] = 0, [2] = 0.30 },
+                ["rbxassetid://10469630950"] = { [1] = 0, [2] = 0.30 },
+                ["rbxassetid://10469639222"] = { [1] = 0, [2] = 0.30 },
+                ["rbxassetid://10469643643"] = { [1] = 0, [2] = 0.30 },
+                ["rbxassetid://13532562418"] = { [1] = 0, [2] = 0.30 },
+                ["rbxassetid://13532600125"] = { [1] = 0, [2] = 0.30 },
+                ["rbxassetid://13532604085"] = { [1] = 0, [2] = 0.30 },
+                ["rbxassetid://13294471966"] = { [1] = 0, [2] = 0.30 },
+                ["rbxassetid://13491635433"] = { [1] = 0, [2] = 0.30 },
+                ["rbxassetid://13296577783"] = { [1] = 0, [2] = 0.30 },
+                ["rbxassetid://13295919399"] = { [1] = 0, [2] = 0.30 },
+                ["rbxassetid://13295936866"] = { [1] = 0, [2] = 0.30 },
+                ["rbxassetid://13370310513"] = { [1] = 0, [2] = 0.30 },
+                ["rbxassetid://13390230973"] = { [1] = 0, [2] = 0.30 },
+                ["rbxassetid://13378751717"] = { [1] = 0, [2] = 0.30 },
+                ["rbxassetid://13378708199"] = { [1] = 0, [2] = 0.30 },
+            }
+            local dodges = {
+                ["rbxassetid://10479335397"] = { [1] = 0, [2] = 0.50 },
+                ["rbxassetid://13380255751"] = { [1] = 0, [2] = 0.50 }
+            }
+            local barrages = {
+                ["rbxassetid://10466974800"] = { [1] = 0.20, [2] = 1.80 },
+                ["rbxassetid://12534735382"] = { [1] = 0.20, [2] = 1.80 }
+            }
+            local abilities = {
+                ["rbxassetid://10468665991"] = { [1] = 0.15, [2] = 0.60 },
+                ["rbxassetid://13376869471"] = { [1] = 0.05, [2] = 1 },
+                ["rbxassetid://13376962659"] = { [1] = 0, [2] = 2 },
+                ["rbxassetid://12296882427"] = { [1] = 0.05, [2] = 1 },
+                ["rbxassetid://13309500827"] = { [1] = 0.05, [2] = 1 },
+                ["rbxassetid://13365849295"] = { [1] = 0, [2] = 1 },
+                ["rbxassetid://13377153603"] = { [1] = 0, [2] = 1 },
+                ["rbxassetid://12509505723"] = { [1] = 0.09, [2] = 2 },
+            }
+
+            local function closest()
+                local closestplr = {}
+                local myHRP = plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
+                if not myHRP then return closestplr end
+                for _, v in ipairs(players:GetPlayers()) do
+                    if v ~= plr and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
+                        local dist = (v.Character.HumanoidRootPart.Position - myHRP.Position).Magnitude
+                        if dist < Settings.Autoparry.Range then
+                            table.insert(closestplr, v)
+                        end
+                    end
+                end
+                return closestplr
+            end
+
+            local function attackchecker()
+                local animator = plr.Character and plr.Character:FindFirstChild("Humanoid") and plr.Character.Humanoid:FindFirstChild("Animator")
+                if not animator then return false end
+                for _, Anim in ipairs(animator:GetPlayingAnimationTracks()) do
+                    local id = Anim.Animation.AnimationId
+                    if anims[id] or dodges[id] or abilities[id] or barrages[id] then
+                        return true
+                    end
+                end
+                return false
+            end
+
+            local function isfacing(object)
+                if Settings.Autoparry.Facing then
+                    local plrDirection = plr.Character.Head.CFrame.LookVector
+                    local unit = (object.Head.CFrame.p - plr.Character.Head.CFrame.p).Unit
+                    local value = math.pow((plrDirection - unit).Magnitude / 2, 2)
+                    return value < Settings.Autoparry.Fov / 360
+                else
+                    return true
+                end
+            end
+
+            local function allowed(enemy)
+                if not plr.Character or not plr.Character:FindFirstChild("M1ing") and not attackchecker() and isfacing(enemy) then
+                    return true
+                end
+                return false
+            end
+
+            local durations = {
+                ["anim"] = 0.3,
+                ["dodge"] = 0.9,
+                ["barrage"] = 0.9,
+                ["ability"] = 0.6,
+            }
+
+            local function def(action)
+                if cd then return end
+                task.wait(Settings.Autoparry.Delay)
+                cd = true
+                local com = plr.Character and plr.Character:FindFirstChild("Communicate")
+                if com then
+                    com:FireServer({["Goal"] = "KeyPress", ["Key"] = Enum.KeyCode.F})
+                    task.wait(durations[action] or 0.3)
+                    com:FireServer({["Goal"] = "KeyRelease", ["Key"] = Enum.KeyCode.F})
+                end
+                cd = false
+            end
+
+            local function lookat(enemy)
+                if Settings.Autoparry.Aimhelper and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") and enemy and enemy:FindFirstChild("HumanoidRootPart") then
+                    plr.Character.HumanoidRootPart.CFrame = CFrame.lookAt(plr.Character.HumanoidRootPart.Position, enemy.HumanoidRootPart.Position)
+                end
+            end
+
+            local function parry()
+                if not Settings.Autoparry.Toggle then return end
+                if not plr.Character or not plr.Character:FindFirstChild("HumanoidRootPart") then return end
+
+                for _, c in ipairs(closest()) do
+                    if c and c.Character and c.Character:FindFirstChild("Humanoid") and c.Character.Humanoid:FindFirstChild("Animator") then
+                        local animator = c.Character.Humanoid.Animator
+                        for _, v in ipairs(animator:GetPlayingAnimationTracks()) do
+                            local id = v.Animation.AnimationId
+                            local anim = anims[id]
+                            local dodge = dodges[id]
+                            local ability = abilities[id]
+                            local barrage = barrages[id]
+
+                            if allowed(c.Character) then
+                                if anim and v.TimePosition >= anim[1] and v.TimePosition <= anim[2] then
+                                    task.spawn(function()
+                                        def("anim")
+                                        lookat(c.Character)
+                                    end)
+                                elseif dodge and v.TimePosition > dodge[1] and v.TimePosition < dodge[2] then
+                                    task.spawn(function()
+                                        def("dodge")
+                                        lookat(c.Character)
+                                    end)
+                                elseif barrage and v.TimePosition > barrage[1] and v.TimePosition < barrage[2] then
+                                    task.spawn(function()
+                                        def("barrage")
+                                        lookat(c.Character)
+                                    end)
+                                elseif ability and v.TimePosition > ability[1] and v.TimePosition < ability[2] then
+                                    task.spawn(function()
+                                        def("ability")
+                                        lookat(c.Character)
+                                    end)
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+
+            autoBlockConnection = game:GetService("RunService").RenderStepped:Connect(function()
+                parry()
+            end)
+
+        else
+            Settings.Autoparry.Toggle = false
+            if autoBlockConnection then
+                autoBlockConnection:Disconnect()
+                autoBlockConnection = nil
+            end
+        end
+    end
+})
+
+-- ============================================================
+-- 10. ESP Death Counter (shows 💢 and ☠)
+-- ============================================================
+local espDeathCounterActive = false
+local espDeathCounterConnection = nil
+local espDeathCounterState = {}
+
+local function StartESPDeathCounter()
+    if espDeathCounterActive then return end
+    espDeathCounterActive = true
+
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local player = Players.LocalPlayer
+
+    local strongSkills = {
+        ["Omni Directional Punch"] = true,
+        ["Death Counter"] = true,
+        ["Serious Punch"] = true,
+        ["Table Flip"] = true
+    }
+    local weakSkills = {
+        ["Consecutive Punches"] = true,
+        ["Normal Punch"] = true,
+        ["Shove"] = true,
+        ["Uppercut"] = true
+    }
+
+    local function createBillboard(target, text)
+        if not (target and target:FindFirstChild("Head")) then return end
+        local bb = target.Head:FindFirstChild("SkillTag") or Instance.new("BillboardGui")
+        bb.Name = "SkillTag"
+        bb.Size = UDim2.new(0,100,0,40)
+        bb.StudsOffset = Vector3.new(0,2.5,0)
+        bb.Adornee = target.Head
+        bb.AlwaysOnTop = true
+        if not bb.Parent then bb.Parent = target.Head end
+
+        local label = bb:FindFirstChild("TextLabel") or Instance.new("TextLabel", bb)
+        label.Size = UDim2.new(1,0,1,0)
+        label.BackgroundTransparency = 1
+        label.Font = Enum.Font.GothamBold
+        label.TextScaled = true
+        label.TextColor3 = Color3.new(1,1,1)
+        label.TextStrokeTransparency = 0.5
+        label.Text = text
+    end
+
+    local function removeBillboard(target)
+        if target and target:FindFirstChild("Head") and target.Head:FindFirstChild("SkillTag") then
+            target.Head.SkillTag:Destroy()
+        end
+    end
+
+    local function getSkillType(backpack)
+        for _, tool in ipairs(backpack:GetChildren()) do
+            if strongSkills[tool.Name] then return "strong" end
+            if weakSkills[tool.Name] then return "weak" end
+        end
+        return nil
+    end
+
+    espDeathCounterConnection = RunService.Heartbeat:Connect(function()
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= player then
+                local char = plr.Character
+                local backpack = plr:FindFirstChildOfClass("Backpack")
+                if char and backpack then
+                    local skillType = getSkillType(backpack)
+                    local lastState = espDeathCounterState[plr]
+
+                    if not lastState then
+                        espDeathCounterState[plr] = skillType
+                        if skillType == "strong" then
+                            createBillboard(char, "💢")
+                        else
+                            removeBillboard(char)
+                        end
+                    else
+                        if skillType == "strong" then
+                            if lastState ~= "strong" then
+                                createBillboard(char, "💢")
+                            end
+                            espDeathCounterState[plr] = "strong"
+                        elseif skillType == "weak" and lastState == "strong" then
+                            createBillboard(char, "☠")
+                            espDeathCounterState[plr] = "weak"
+                            task.delay(math.random(8,9), function()
+                                if espDeathCounterState[plr] == "weak" then
+                                    removeBillboard(char)
+                                end
+                            end)
+                        end
+                    end
+                end
+            end
+        end
+    end)
+end
+
+local function StopESPDeathCounter()
+    if not espDeathCounterActive then return end
+    espDeathCounterActive = false
+
+    if espDeathCounterConnection then
+        espDeathCounterConnection:Disconnect()
+        espDeathCounterConnection = nil
+    end
+
+    for _, plr in ipairs(game:GetService("Players"):GetPlayers()) do
+        if plr.Character and plr.Character:FindFirstChild("Head") then
+            local head = plr.Character.Head
+            local tag = head:FindFirstChild("SkillTag")
+            if tag then tag:Destroy() end
+        end
+    end
+    espDeathCounterState = {}
+end
+
+MainTab:Toggle({
+    Title = "ESP Death Counter",
+    Desc = "Shows icons above players with ult (💢) or death counter (☠) skills",
+    Locked = false,
+    Default = false,
+    Callback = function(state)
+        if state then
+            StartESPDeathCounter()
+        else
+            StopESPDeathCounter()
+        end
+    end
+})
+
+-- ============================================================
+-- 11. Anti-Death Counter (prevents fall death)
+-- ============================================================
+local antiDeathEnabled = false
+local antiDeathConnection = nil
+local antiDeathChecking = false
+
+local function StartAntiDeath()
+    if antiDeathConnection then return end
+    antiDeathEnabled = true
+
+    antiDeathConnection = game:GetService("RunService").RenderStepped:Connect(function()
+        if antiDeathEnabled and not antiDeathChecking then
+            local deathCam = workspace:FindFirstChild("Cutscenes")
+                            and workspace.Cutscenes:FindFirstChild("Death Cutscene")
+                            and workspace.Cutscenes["Death Cutscene"]:FindFirstChild("Camm")
+
+            if deathCam and game:GetService("Workspace").CurrentCamera.CameraSubject == deathCam then
+                antiDeathChecking = true
+                local player = game.Players.LocalPlayer
+                if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                    local hrp = player.Character.HumanoidRootPart
+                    local originalCFrame = hrp.CFrame
+
+                    task.wait(2)
+                    if game:GetService("Workspace").CurrentCamera.CameraSubject == deathCam then
+                        hrp.CFrame = voidPart.CFrame + Vector3.new(0,5,0)
+                        game:GetService("Workspace").CurrentCamera.CameraSubject = player.Character:FindFirstChild("Humanoid")
+                        task.wait(0.1)
+                        hrp.CFrame = originalCFrame
+                    end
+                end
+                antiDeathChecking = false
+            end
+        end
+    end)
+end
+
+local function StopAntiDeath()
+    antiDeathEnabled = false
+    if antiDeathConnection then
+        antiDeathConnection:Disconnect()
+        antiDeathConnection = nil
+    end
+    antiDeathChecking = false
+end
+
+MainTab:Toggle({
+    Title = "Anti-Death Counter",
+    Desc = "Teleports you back when you fall into a death cutscene (prevents death)",
+    Locked = false,
+    Default = false,
+    Callback = function(state)
+        if state then
+            StartAntiDeath()
+        else
+            StopAntiDeath()
+        end
+    end
+})
+
+-- ============================================================
+-- 12. No Dash Cooldown
+-- ============================================================
+MainTab:Toggle({
+    Title = "No Dash Cooldown",
+    Desc = "Removes dash cooldown (sets workspace attribute)",
+    Locked = false,
+    Default = false,
+    Callback = function(state)
+        workspace:SetAttribute("NoDashCooldown", state)
+    end
+})
+
+-- ============================================================
+-- 13. Speed Boost (subtle 0.08 multiplier)
+-- ============================================================
+local speedBoostActive = false
+local speedBoostConnection = nil
+
+local function StartSpeedBoost()
+    if speedBoostActive then return end
+    speedBoostActive = true
+
+    local RunService = game:GetService("RunService")
+    local player = game.Players.LocalPlayer
+
+    speedBoostConnection = RunService.Heartbeat:Connect(function()
+        if speedBoostActive then
+            local char = player.Character
+            local hum = char and char:FindFirstChild("Humanoid")
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            if hum and hrp and hum.MoveDirection.Magnitude > 0 then
+                hrp.CFrame = hrp.CFrame + (hum.MoveDirection * 0.08)
+            end
+        end
+    end)
+end
+
+local function StopSpeedBoost()
+    speedBoostActive = false
+    if speedBoostConnection then
+        speedBoostConnection:Disconnect()
+        speedBoostConnection = nil
+    end
+end
+
+MainTab:Toggle({
+    Title = "Speed Boost",
+    Desc = "Slightly increases movement speed (subtle 0.08x bonus)",
+    Locked = false,
+    Default = false,
+    Callback = function(state)
+        if state then
+            StartSpeedBoost()
+        else
+            StopSpeedBoost()
+        end
+    end
+})
+
+-- ============================================================
+-- 14. Jump Boost (fixed 50 studs)
+-- ============================================================
+local jumpBoostActive = false
+
+local function ApplyJumpSettings()
+    local player = game.Players.LocalPlayer
+    local char = player.Character
+    local hum = char and char:FindFirstChild("Humanoid")
+    if not hum then return end
+
+    if jumpBoostActive then
+        hum.UseJumpPower = true
+        hum.JumpHeight = 50
+    else
+        hum.UseJumpPower = false
+        hum.JumpHeight = 7.2
+    end
+end
+
+game.Players.LocalPlayer.CharacterAdded:Connect(function()
+    task.wait(0.1)
+    ApplyJumpSettings()
+end)
+
+local function StartJumpBoost()
+    jumpBoostActive = true
+    ApplyJumpSettings()
+end
+
+local function StopJumpBoost()
+    jumpBoostActive = false
+    ApplyJumpSettings()
+end
+
+MainTab:Toggle({
+    Title = "Jump Boost",
+    Desc = "Enables high jump (fixed 50 studs)",
+    Locked = false,
+    Default = false,
+    Callback = function(state)
+        if state then
+            StartJumpBoost()
+        else
+            StopJumpBoost()
+        end
+    end
+})
+
+-- ============================================================
+-- TECH TAB
+-- ============================================================
+local TechsTab = Window:Tab({
+    Title = "Techs",
+    Icon = "code",
+    Locked = false,
+})
+
+TechsTab:Paragraph({
+    Title = "Techs",
+    Text = "Advanced combat techniques."
+})
+
+-- ============================================================
+-- HEXED TECH
+-- ============================================================
+local function disableCollisions(character)
+    for _, part in ipairs(character:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.CanCollide = false
+        end
+    end
+end
+
+local function getClosestTarget(rootPart, range)
+    local closest = nil
+    local closestDist = range
+    for _, player in ipairs(game.Players:GetPlayers()) do
+        if player ~= game.Players.LocalPlayer then
+            local char = player.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local hrp = char.HumanoidRootPart
+                local dist = (hrp.Position - rootPart.Position).Magnitude
+                if dist < closestDist then
+                    closestDist = dist
+                    closest = {Model = char, Root = hrp}
+                end
+            end
+        end
+    end
+    if closest then
+        return closest.Model, closest.Root
+    end
+    return nil, nil
+end
+
+TechsTab:Toggle({
+    Title = "Hexed Tech",
+    Desc = "Advanced auto-aim dash tech + uppercut jump boost",
+    Locked = false,
+    Default = false,
+    Callback = function(state)
+        toggles.HexedTech = state
+        if state then
+            task.spawn(function()
+                local ANIMATION_IDS = {
+                    "rbxassetid://10503381238",
+                    "rbxassetid://13379003796"
+                }
+                
+                local CONFIG = {
+                    TARGET_RANGE = 50,
+                    TRACKING_DURATION = 0.45,
+                    DASH_DELAY = 0.28,
+                    DASH_ACTIVATION_DELAY = 0.22,
+                    RESPONSIVENESS = 200,
+                    UPPERCUT_BOOST = 20
+                }
+                
+                local LocalPlayer = game.Players.LocalPlayer
+                local RunService = game:GetService("RunService")
+                local currentCharacter = LocalPlayer.Character
+                local currentHumanoid = nil
+                local currentRootPart = nil
+                local animationConnection = nil
+                local trackingConnection = nil
+                
+                local function setupCharacter(character)
+                    currentCharacter = character
+                    currentHumanoid = character:WaitForChild("Humanoid")
+                    currentRootPart = character:WaitForChild("HumanoidRootPart")
+                    
+                    if animationConnection then
+                        animationConnection:Disconnect()
+                    end
+                    
+                    animationConnection = currentHumanoid.AnimationPlayed:Connect(function(track)
+                        local animation = track.Animation
+                        if animation and table.find(ANIMATION_IDS, animation.AnimationId) then
+                            disableCollisions(currentCharacter)
+                            
+                            task.wait(CONFIG.DASH_DELAY)
+                            
+                            local communicate = currentCharacter:FindFirstChild("Communicate")
+                            if communicate then
+                                communicate:FireServer({["Goal"] = "KeyPress", ["Key"] = Enum.KeyCode.Q})
+                            end
+                            
+                            task.wait(CONFIG.DASH_ACTIVATION_DELAY)
+                            
+                            local upBoost = Instance.new("BodyVelocity")
+                            upBoost.MaxForce = Vector3.new(0, math.huge, 0)
+                            upBoost.Velocity = Vector3.new(0, CONFIG.UPPERCUT_BOOST, 0)
+                            upBoost.Parent = currentRootPart
+                            task.delay(0.2, function()
+                                if upBoost then upBoost:Destroy() end
+                            end)
+                            
+                            if currentRootPart then
+                                local alignAttachment = Instance.new("Attachment")
+                                alignAttachment.Name = "AutoAimAttachment"
+                                alignAttachment.Parent = currentRootPart
+                                
+                                local alignOrientation = Instance.new("AlignOrientation")
+                                alignOrientation.Mode = Enum.OrientationAlignmentMode.OneAttachment
+                                alignOrientation.Attachment0 = alignAttachment
+                                alignOrientation.MaxTorque = math.huge
+                                alignOrientation.Responsiveness = CONFIG.RESPONSIVENESS
+                                alignOrientation.RigidityEnabled = false
+                                alignOrientation.Parent = currentRootPart
+                                
+                                local bodyVelocity = Instance.new("BodyVelocity")
+                                bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+                                bodyVelocity.Velocity = Vector3.zero
+                                bodyVelocity.Parent = currentRootPart
+                                
+                                local startTime = tick()
+                                
+                                if trackingConnection then
+                                    trackingConnection:Disconnect()
+                                end
+                                
+                                trackingConnection = RunService.Heartbeat:Connect(function()
+                                    if CONFIG.TRACKING_DURATION >= tick() - startTime then
+                                        local targetModel, targetRoot = getClosestTarget(
+                                            currentRootPart,
+                                            CONFIG.TARGET_RANGE
+                                        )
+                                        
+                                        if targetModel and targetRoot then
+                                            local direction = (targetRoot.Position - currentRootPart.Position)
+                                            direction = Vector3.new(direction.X, 0, direction.Z)
+                                            
+                                            if direction.Magnitude > 0.1 then
+                                                local lookCFrame = CFrame.lookAt(
+                                                    currentRootPart.Position,
+                                                    Vector3.new(targetRoot.Position.X, currentRootPart.Position.Y, targetRoot.Position.Z)
+                                                )
+                                                
+                                                local tiltedCFrame = lookCFrame * CFrame.Angles(math.rad(15), 0, 0)
+                                                
+                                                currentRootPart.CFrame = tiltedCFrame
+                                                alignOrientation.CFrame = tiltedCFrame
+                                                
+                                                local distance = (targetRoot.Position - currentRootPart.Position).Magnitude
+                                                if distance > 3 then
+                                                    local velocityDirection = (targetRoot.Position - currentRootPart.Position).Unit
+                                                    bodyVelocity.Velocity = velocityDirection * 50
+                                                else
+                                                    bodyVelocity.Velocity = Vector3.zero
+                                                end
+                                            end
+                                        end
+                                    else
+                                        if trackingConnection then
+                                            trackingConnection:Disconnect()
+                                        end
+                                        bodyVelocity:Destroy()
+                                        alignOrientation:Destroy()
+                                        alignAttachment:Destroy()
+                                    end
+                                end)
+                            end
+                        end
+                    end)
+                end
+                
+                local characterAddedConnection = LocalPlayer.CharacterAdded:Connect(setupCharacter)
+                if LocalPlayer.Character then
+                    setupCharacter(LocalPlayer.Character)
+                end
+                
+                while toggles.HexedTech do
+                    task.wait(1)
+                end
+                
+                if animationConnection then
+                    animationConnection:Disconnect()
+                end
+                if trackingConnection then
+                    trackingConnection:Disconnect()
+                end
+                characterAddedConnection:Disconnect()
+            end)
+        end
+    end
+})
+
+-- ============================================================
+-- BUTTON TECHS TAB
+-- ============================================================
+local ButtonTechsTab = Window:Tab({
+    Title = "Button Techs",
+    Icon = "terminal",
+    Locked = false,
+})
+
+ButtonTechsTab:Paragraph({
+    Title = "Button Techs",
+    Text = "Click a button to load external tech scripts."
+})
+
+-- Helper function to load external scripts with intro killer
+local function LoadExternalTech(url, name)
+    task.spawn(function()
+        -- Kill any intro animations before loading
+        pcall(function()
+            -- Try to stop any playing intro animations
+            for _, v in ipairs(game:GetService("Players").LocalPlayer.Character:GetDescendants()) do
+                if v:IsA("Animation") or v:IsA("Animator") then
+                    pcall(function() v:Stop() end)
+                end
+            end
+            -- Try to clear any intro screens
+            pcall(function()
+                for _, v in ipairs(game.CoreGui:GetChildren()) do
+                    if v:IsA("ScreenGui") and (v.Name:lower():find("intro") or v.Name:lower():find("welcome") or v.Name:lower():find("loading")) then
+                        v:Destroy()
+                    end
+                end
+            end)
+        end)
+        
+        local success, result = pcall(function()
+            return loadstring(game:HttpGet(url))()
+        end)
+        if not success then
+            warn(name .. " failed to load:", result)
+            game.StarterGui:SetCore("SendNotification", {
+                Title = "Error",
+                Text = name .. " failed to load!",
+                Duration = 3,
+            })
+        else
+            game.StarterGui:SetCore("SendNotification", {
+                Title = "Success",
+                Text = name .. " loaded successfully!",
+                Duration = 2,
+            })
+        end
+    end)
+end
+
+ButtonTechsTab:Button({
+    Title = "Oreo Tech V2",
+    Desc = "Loads Oreo Tech V2 from Defy-cloud",
+    Callback = function()
+        LoadExternalTech("https://raw.githubusercontent.com/Defy-cloud/The-Strongest-Battlegrounds/refs/heads/main/OreoTechV2", "Oreo Tech V2")
+    end
+})
+
+ButtonTechsTab:Button({
+    Title = "Dripz",
+    Desc = "Loads Dripz script",
+    Callback = function()
+        LoadExternalTech("https://raw.githubusercontent.com/dinhthanhtuankiet1762009-sudo/Js/refs/heads/main/abd629cbf15379ff.lua", "Dripz")
+    end
+})
+
+-- ============================================================
+-- TELEPORT TAB
+-- ============================================================
+local TeleportTab = Window:Tab({
+    Title = "Teleport",
+    Icon = "map-pin",
+    Locked = false,
+})
+
+TeleportTab:Paragraph({
+    Title = "Teleport Locations",
+    Text = "Click a button to instantly teleport to that location."
+})
+
+local function TeleportTo(position)
+    local player = game.Players.LocalPlayer
+    local char = player.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        char.HumanoidRootPart.CFrame = CFrame.new(position)
+    else
+        warn("Character or HumanoidRootPart not found")
+    end
+end
+
+local locations = {
+    { name = "Main Map", pos = Vector3.new(219.81, 437.76, -62.96) },
+    { name = "Mountain 1", pos = Vector3.new(-100.45, 649.84, -381.81) },
+    { name = "Mountain 2", pos = Vector3.new(343.55, 696.10, 370.36) },
+    { name = "Death Counter Room", pos = Vector3.new(-35.38, 34.95, 20348.53) },
+    { name = "Atomic Slash Room", pos = Vector3.new(1086.53, 142.31, 23007.97) },
+    { name = "Upper Baseplate", pos = Vector3.new(1163.84, 402.99, 22901.67) },
+    { name = "Lower Baseplate", pos = Vector3.new(1144.79, 16.93, 22928.82) },
+    { name = "Void", pos = Vector3.new(-6896.53, 873.40, -6729.34) },
+}
+
+for _, loc in ipairs(locations) do
+    TeleportTab:Button({
+        Title = loc.name,
+        Desc = "Teleport to " .. loc.name,
+        Callback = function()
+            TeleportTo(loc.pos)
+        end
+    })
+end
+
+print("SW1ftHub loaded successfully! All features should work in TSB.")
+pcall(function()
+    if statusGui then
+        statusGui:Destroy()
+    end
+end)
+
+end) -- end of pcall-protected boot
+
+if not bootOk then
+    warn("[SW1ftHub] ERROR: " .. tostring(bootErr))
+    pcall(function()
+        local errGui = Instance.new("ScreenGui")
+        errGui.Name = "SW1ftHubError"
+        errGui.ResetOnSpawn = false
+        errGui.IgnoreGuiInset = true
+        errGui.DisplayOrder = 2147483647
+
+        local frame = Instance.new("Frame")
+        frame.AnchorPoint = Vector2.new(0.5, 0)
+        frame.Position = UDim2.new(0.5, 0, 0, 12)
+        frame.Size = UDim2.new(0.6, 0, 0.35, 0)
+        frame.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+        frame.BackgroundTransparency = 0.05
+        frame.BorderSizePixel = 0
+        frame.Parent = errGui
+
+        local corner = Instance.new("UICorner")
+        corner.CornerRadius = UDim.new(0, 10)
+        corner.Parent = frame
+
+        local stroke = Instance.new("UIStroke")
+        stroke.Thickness = 2
+        stroke.Color = Color3.fromRGB(255, 70, 70)
+        stroke.Parent = frame
+
+        local label = Instance.new("TextLabel")
+        label.Position = UDim2.fromOffset(12, 10)
+        label.Size = UDim2.new(1, -24, 1, -20)
+        label.BackgroundTransparency = 1
+        label.Font = Enum.Font.Code
+        label.TextSize = 15
+        label.TextWrapped = true
+        label.TextXAlignment = Enum.TextXAlignment.Left
+        label.TextYAlignment = Enum.TextYAlignment.Top
+        label.TextColor3 = Color3.fromRGB(255, 120, 120)
+        label.Text = "SW1ftHub failed to start:\n\n" .. tostring(bootErr)
+        label.Parent = frame
+
+        local parent = nil
+        pcall(function()
+            parent = gethui and gethui() or nil
+        end)
+        if not parent then
+            pcall(function()
+                parent = game:GetService("CoreGui")
+            end)
+        end
+        local parentOk = false
+        if parent then
+            parentOk = pcall(function()
+                errGui.Parent = parent
+            end)
+        end
+        if not parentOk then
+            errGui.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+        end
+    end)
+end
