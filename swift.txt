@@ -100,7 +100,6 @@ setStatus("loading WindUI...")
 local WindUI = nil
 
 local function httpGet(url)
-    -- Try with cache-bypass first, fall back to a plain request
     local ok, body = pcall(function()
         return game:HttpGet(url, true)
     end)
@@ -200,13 +199,11 @@ Window:EditOpenButton({
     Color = ColorSequence.new(Color3.fromHex("#FFFFFF"), Color3.fromHex("#1a1a1a")),
     OnlyIcon = true,
     OnlyMobile = false,
-    Enabled = false, -- replaced by our own circular button below
+    Enabled = false,
     Draggable = false,
 })
 
 -- ========== OWN CIRCULAR OPEN/CLOSE BUTTON ==========
--- Self-contained, so it works even if WindUI's internal open button changes
--- or is not exposed by the installed WindUI version.
 do
     local UserInputService = game:GetService("UserInputService")
     local buttonParent = nil
@@ -247,7 +244,7 @@ do
     button.Parent = openGui
 
     local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(1, 0) -- perfect circle
+    corner.CornerRadius = UDim.new(1, 0)
     corner.Parent = button
 
     local stroke = Instance.new("UIStroke")
@@ -320,7 +317,6 @@ do
         end
     end)
 
-    -- Remove the circle if the window is fully destroyed
     pcall(function()
         Window:OnDestroy(function()
             pcall(function()
@@ -358,10 +354,12 @@ local toggles = {
     HexedTech = false
 }
 
--- ========== VOID PART FOR ANTI-DEATH ==========
+-- ========== VOID PART FOR ANTI-DEATH (FIXED SIZE) ==========
+-- Originally 9e9 studs wide, which froze/crashed the client.
+-- 500 studs is plenty for the Anti-Death Counter teleport.
 local voidPart = Instance.new("Part")
 voidPart.Name = "Void Part"
-voidPart.Size = Vector3.new(9e9, 1.5, 9e9)
+voidPart.Size = Vector3.new(500, 1.5, 500)
 voidPart.Anchored = true
 voidPart.CanCollide = true
 voidPart.Material = Enum.Material.Plastic
@@ -406,7 +404,7 @@ MainTab:Paragraph({
 })
 
 -- ============================================================
--- 1. AIMBOT (keybind Z, UI with Start/Stop)
+-- 1. AIMBOT
 -- ============================================================
 local aimbotActive = false
 local aimbotConnections = {}
@@ -490,7 +488,6 @@ local function StartAimbot()
     end)
     table.insert(aimbotConnections, keyConn)
 
-    -- UI
     local BladLock = Instance.new("ScreenGui")
     BladLock.Name = "BladLock"
     BladLock.Parent = game.CoreGui
@@ -577,7 +574,7 @@ MainTab:Toggle({
 })
 
 -- ============================================================
--- 2. ESP (Health above heads)
+-- 2. ESP
 -- ============================================================
 local espEnabled = false
 local espBillboards = {}
@@ -729,7 +726,7 @@ MainTab:Toggle({
 })
 
 -- ============================================================
--- 3. ESP Tracer (red beams to enemies)
+-- 3. ESP Tracer
 -- ============================================================
 local tracerEnabled = false
 local tracerBeams = {}
@@ -847,7 +844,7 @@ MainTab:Toggle({
 })
 
 -- ============================================================
--- 4. Invisible Block (swap with dummy)
+-- 4. Invisible Block
 -- ============================================================
 local invisActive = false
 local fakeChar = nil
@@ -1201,7 +1198,7 @@ MainTab:Toggle({
 })
 
 -- ============================================================
--- 8. Anti-Lag (FPS Booster)
+-- 8. Anti-Lag
 -- ============================================================
 MainTab:Button({
     Title = "Anti-Lag",
@@ -1263,7 +1260,7 @@ MainTab:Button({
 })
 
 -- ============================================================
--- 9. Auto Block (parry)
+-- 9. Auto Block
 -- ============================================================
 MainTab:Toggle({
     Title = "Auto Block",
@@ -1444,7 +1441,7 @@ MainTab:Toggle({
 })
 
 -- ============================================================
--- 10. ESP Death Counter (shows 💢 and ☠)
+-- 10. ESP Death Counter
 -- ============================================================
 local espDeathCounterActive = false
 local espDeathCounterConnection = nil
@@ -1577,7 +1574,7 @@ MainTab:Toggle({
 })
 
 -- ============================================================
--- 11. Anti-Death Counter (prevents fall death)
+-- 11. Anti-Death Counter
 -- ============================================================
 local antiDeathEnabled = false
 local antiDeathConnection = nil
@@ -1651,7 +1648,7 @@ MainTab:Toggle({
 })
 
 -- ============================================================
--- 13. Speed Boost (subtle 0.08 multiplier)
+-- 13. Speed Boost
 -- ============================================================
 local speedBoostActive = false
 local speedBoostConnection = nil
@@ -1698,7 +1695,7 @@ MainTab:Toggle({
 })
 
 -- ============================================================
--- 14. Jump Boost (fixed 50 studs)
+-- 14. Jump Boost
 -- ============================================================
 local jumpBoostActive = false
 
@@ -1959,18 +1956,14 @@ ButtonTechsTab:Paragraph({
     Text = "Click a button to load external tech scripts."
 })
 
--- Helper function to load external scripts with intro killer
 local function LoadExternalTech(url, name)
     task.spawn(function()
-        -- Kill any intro animations before loading
         pcall(function()
-            -- Try to stop any playing intro animations
             for _, v in ipairs(game:GetService("Players").LocalPlayer.Character:GetDescendants()) do
                 if v:IsA("Animation") or v:IsA("Animator") then
                     pcall(function() v:Stop() end)
                 end
             end
-            -- Try to clear any intro screens
             pcall(function()
                 for _, v in ipairs(game.CoreGui:GetChildren()) do
                     if v:IsA("ScreenGui") and (v.Name:lower():find("intro") or v.Name:lower():find("welcome") or v.Name:lower():find("loading")) then
